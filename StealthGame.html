@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stealth Move</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            background-color: #f0f0f0;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #levelDisplay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="levelDisplay">Level: 1</div>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const levelDisplay = document.getElementById('levelDisplay');
+
+        // Load images with placeholders
+        const playerImg = new Image();
+        playerImg.src = 'https://placehold.co/32x32/blue/white/png?text=P'; // Player placeholder
+        playerImg.loaded = false;
+
+        const guardImg = new Image();
+        guardImg.src = 'https://placehold.co/32x32/red/white/png?text=G'; // Guard placeholder
+        guardImg.loaded = false;
+
+        const goalImg = new Image();
+        goalImg.src = 'https://placehold.co/32x32/green/white/png?text=Goal'; // Goal placeholder
+        goalImg.loaded = false;
+
+        // Image loading check
+        let imagesLoaded = 0;
+        const totalImages = 3;
+
+        function checkImagesLoaded() {
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+                update();
+            }
+        }
+
+        // Set up image load and error handlers
+        playerImg.onload = function() {
+            playerImg.loaded = true;
+            checkImagesLoaded();
+        };
+        playerImg.onerror = function() {
+            console.error('Failed to load player image');
+            playerImg.loaded = false;
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+                update();
+            }
+        };
+
+        guardImg.onload = function() {
+            guardImg.loaded = true;
+            checkImagesLoaded();
+        };
+        guardImg.onerror = function() {
+            console.error('Failed to load guard image');
+            guardImg.loaded = false;
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+                update();
+            }
+        };
+
+        goalImg.onload = function() {
+            goalImg.loaded = true;
+            checkImagesLoaded();
+        };
+        goalImg.onerror = function() {
+            console.error('Failed to load goal image');
+            goalImg.loaded = false;
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+                update();
+            }
+        };
+
+        // Player properties
+        let player = {
+            x: 50,
+            y: 200,
+            size: 32,
+            speed: 5
+        };
+
+        // Multiple guards
+        let guards = [
+            {
+                x: 300,
+                y: 150,
+                size: 32,
+                speed: 2,
+                direction: 1,
+                visionRange: 100,
+                patrolMin: 200,
+                patrolMax: 400
+            },
+            {
+                x: 250,
+                y: 250,
+                size: 32,
+                speed: 3,
+                direction: -1,
+                visionRange: 80,
+                patrolMin: 150,
+                patrolMax: 350
+            }
+        ];
+
+        // Goal
+        let goal = {
+            x: 550,
+            y: 200,
+            size: 32
+        };
+
+        // Game state
+        let gameOver = false;
+        let level = 1;
+
+        // Handle player movement
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) return;
+            switch (e.key) {
+                case 'ArrowUp': player.y -= player.speed; break;
+                case 'ArrowDown': player.y += player.speed; break;
+                case 'ArrowLeft': player.x -= player.speed; break;
+                case 'ArrowRight': player.x += player.speed; break;
+            }
+            player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+            player.y = Math.max(0, Math.min(canvas.height - player.size, player.y));
+        });
+
+        // Level progression
+        function nextLevel() {
+            level++;
+            levelDisplay.textContent = `Level: ${level}`;
+            // Reset player position
+            player.x = 50;
+            player.y = 200;
+            // Increase guard difficulty
+            guards.forEach(guard => {
+                guard.speed += 0.5; // Speed up guards
+                guard.visionRange += 10; // Wider vision
+            });
+            gameOver = false;
+        }
+
+        // Game loop
+        function update() {
+            console.log('Update running'); // Debug log
+            if (gameOver) return;
+
+            // Move guards
+            guards.forEach(guard => {
+                guard.x += guard.speed * guard.direction;
+                if (guard.x <= guard.patrolMin || guard.x >= guard.patrolMax) {
+                    guard.direction *= -1;
+                }
+            });
+
+            // Check for detection
+            for (let guard of guards) {
+                if (player.x > guard.x - guard.visionRange && player.x < guard.x + guard.visionRange &&
+                    Math.abs(player.y - guard.y) < 50) {
+                    gameOver = true;
+                    alert('Caught by a guard! Refresh to retry.');
+                    return;
+                }
+            }
+
+            // Check for win
+            if (Math.abs(player.x - goal.x) < player.size && Math.abs(player.y - goal.y) < player.size) {
+                nextLevel();
+            }
+
+            // Draw everything
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw player
+            if (playerImg.loaded) {
+                ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
+            } else {
+                ctx.fillStyle = 'blue';
+                ctx.fillRect(player.x, player.y, player.size, player.size);
+            }
+
+            // Draw guards and their vision
+            guards.forEach(guard => {
+                if (guardImg.loaded) {
+                    ctx.drawImage(guardImg, guard.x, guard.y, guard.size, guard.size);
+                } else {
+                    ctx.fillStyle = 'red';
+                    ctx.fillRect(guard.x, guard.y, guard.size, guard.size);
+                }
+                // Draw vision
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+                ctx.fillRect(guard.x, guard.y - 25, guard.visionRange * guard.direction, 50);
+            });
+
+            // Draw goal
+            if (goalImg.loaded) {
+                ctx.drawImage(goalImg, goal.x, goal.y, goal.size, goal.size);
+            } else {
+                ctx.fillStyle = 'green';
+                ctx.fillRect(goal.x, goal.y, goal.size, goal.size);
+            }
+
+            requestAnimationFrame(update);
+        }
+    </script>
+</body>
+</html>
